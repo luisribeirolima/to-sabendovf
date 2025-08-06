@@ -1,40 +1,55 @@
--- Esta função centraliza todos os cálculos de KPIs do dashboard,
--- tornando o carregamento da página ordens de magnitude mais rápido.
+-- CORREÇÃO DEFINITIVA: A lógica agora se baseia na posse do projeto (owner_id).
 CREATE OR REPLACE FUNCTION public.get_dashboard_kpis(p_project_id uuid DEFAULT NULL)
 RETURNS jsonb AS $$
 DECLARE
-    -- Variáveis para os resultados
     kpis jsonb;
-    project_ids uuid[];
+    project_ids_to_query uuid[];
+    user_role text;
+    current_user_id uuid := auth.uid();
 BEGIN
-    -- Determina em quais projetos devemos calcular os KPIs
+    -- 1. Obter o perfil do usuário
+    SELECT public.get_my_role() INTO user_role;
+
+    -- 2. Determinar os projetos relevantes com base no perfil e na posse
     IF p_project_id IS NOT NULL THEN
-        -- Se um projeto específico é solicitado, usa apenas o ID dele
-        project_ids := ARRAY[p_project_id];
+        -- Se um projeto específico for fornecido, usa apenas ele
+        -- (com uma verificação de segurança futura, se necessário)
+        project_ids_to_query := ARRAY[p_project_id];
     ELSE
-        -- Se for a visão consolidada, pega todos os projetos do usuário
-        SELECT array_agg(project_id) INTO project_ids FROM public.collaborators WHERE user_id = auth.uid();
+        -- Na visão consolidada:
+        IF user_role = 'Admin' THEN
+            -- Admin vê todos os projetos
+            SELECT array_agg(id) INTO project_ids_to_query FROM public.projects;
+        ELSE
+            -- Gerentes e Membros veem apenas os projetos que eles possuem ou nos quais colaboram
+            SELECT array_agg(DISTINCT id) INTO project_ids_to_query
+            FROM (
+                SELECT id FROM public.projects WHERE owner_id = current_user_id
+                UNION
+                SELECT project_id AS id FROM public.collaborators WHERE user_id = current_user_id
+            ) AS user_projects;
+        END IF;
     END IF;
 
-    -- Se o usuário não tem projetos, retorna um objeto vazio
-    IF project_ids IS NULL OR array_length(project_ids, 1) = 0 THEN
+    -- Se não houver projetos, retorna um objeto JSON vazio
+    IF project_ids_to_query IS NULL OR array_length(project_ids_to_query, 1) IS NULL THEN
         RETURN '{}'::jsonb;
     END IF;
 
-    -- Calcula todos os KPIs em uma única consulta
+    -- 3. Calcula todos os KPIs com base nos projetos filtrados
     SELECT jsonb_build_object(
-        'total_budget', SUM(p.budget),
+        'total_budget', COALESCE(SUM(p.budget), 0),
         'total_projects', COUNT(DISTINCT t.project_id),
         'total_tasks', COUNT(t.id),
         'completed_tasks', COUNT(t.id) FILTER (WHERE ts.name = 'Concluído'),
         'tasks_at_risk', COUNT(t.id) FILTER (WHERE ts.name <> 'Concluído' AND t.end_date < CURRENT_DATE),
-        'overall_progress', AVG(t.progress)
+        'overall_progress', COALESCE(AVG(t.progress), 0)
     )
     INTO kpis
     FROM public.tasks t
     JOIN public.projects p ON t.project_id = p.id
     LEFT JOIN public.task_statuses ts ON t.status_id = ts.id
-    WHERE t.project_id = ANY(project_ids);
+    WHERE t.project_id = ANY(project_ids_to_query);
 
     RETURN kpis;
 END;

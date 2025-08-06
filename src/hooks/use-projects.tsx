@@ -4,7 +4,7 @@ import type { Project } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
-// Tipos para os dados de criação e atualização, incluindo a lista de colaboradores
+// Tipos
 type ProjectUpdateData = Partial<Project> & { collaborator_ids?: string[] };
 type NewProjectData = Omit<Project, 'id' | 'created_at'> & { collaborator_ids?: string[] };
 
@@ -40,22 +40,45 @@ export const ProjectsProvider = ({ children }: { children: ReactNode }) => {
   }, [fetchProjects]);
 
   const addProject = async (project: NewProjectData) => {
+    // CORREÇÃO: Chama a nova função 'create_project' que define o owner_id
     const { collaborator_ids, ...projectData } = project;
-    const { error } = await supabase.rpc('create_project_with_collaborators', {
+    const { data, error } = await supabase.rpc('create_project', {
       p_name: projectData.name,
       p_description: projectData.description,
       p_start_date: projectData.start_date,
       p_end_date: projectData.end_date,
-      p_budget: projectData.budget,
-      p_collaborator_ids: collaborator_ids || [],
+      p_budget: projectData.budget
     });
-    if (error) { toast({ title: "Erro ao criar projeto", description: error.message, variant: "destructive" }); } 
-    else { toast({ title: "Projeto criado com sucesso!" }); fetchProjects(); }
+
+    if (error) { 
+      toast({ title: "Erro ao criar projeto", description: error.message, variant: "destructive" }); 
+    } else { 
+      // Se a criação for bem-sucedida e houver colaboradores para adicionar
+      if (collaborator_ids && collaborator_ids.length > 0) {
+        const newProjectId = data.id;
+        const { error: collabError } = await supabase.rpc('update_project_with_collaborators', {
+          p_project_id: newProjectId,
+          p_name: projectData.name,
+          p_description: projectData.description,
+          p_start_date: projectData.start_date,
+          p_end_date: projectData.end_date,
+          p_budget: projectData.budget,
+          p_collaborator_ids: collaborator_ids,
+        });
+        if (collabError) {
+          toast({ title: "Projeto criado, mas houve um erro ao adicionar colaboradores", description: collabError.message, variant: "destructive" });
+        } else {
+          toast({ title: "Projeto e colaboradores adicionados com sucesso!" });
+        }
+      } else {
+        toast({ title: "Projeto criado com sucesso!" });
+      }
+      fetchProjects(); 
+    }
   };
 
   const updateProject = async (id: string, updates: ProjectUpdateData) => {
     const { collaborator_ids, ...projectData } = updates;
-    // Chama a nova RPC de atualização
     const { error } = await supabase.rpc('update_project_with_collaborators', {
         p_project_id: id,
         p_name: projectData.name,
