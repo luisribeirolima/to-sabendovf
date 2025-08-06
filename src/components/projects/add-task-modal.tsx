@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Task, User, Tag } from "@/lib/types";
+import type { Task, User, Tag, Project } from "@/lib/types"; // Importado Project
 import { DatePicker } from "../shared/date-picker";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSettings, TaskStatus, Column } from "@/hooks/use-table-settings";
+import { useProjects } from "@/hooks/use-projects"; // Importado useProjects
 import { parseUTCDate, formatToISODate } from "@/lib/date-utils";
 import { MultiSelect } from "../shared/multi-select";
 
@@ -39,7 +40,27 @@ export default function AddTaskModal({
 }: AddTaskModalProps) {
     const { toast } = useToast();
     const { columns } = useTableSettings();
+    const { projects } = useProjects(); // Acesso aos projetos
     const [taskData, setTaskData] = useState<Partial<Task> & { tag_ids?: string[], custom_fields?: any }>({});
+
+    // Filtra a lista de responsáveis para mostrar apenas os colaboradores do projeto selecionado
+    const availableAssignees = useMemo(() => {
+        if (!selectedProject || selectedProject === 'consolidated' || !projects) {
+            return users; // Na visão consolidada, mostra todos os usuários
+        }
+        const project = projects.find(p => p.id === selectedProject);
+        const collaboratorIds = project?.collaborator_ids || [];
+        return users.filter(user => collaboratorIds.includes(user.id));
+    }, [selectedProject, projects, users]);
+    
+    // Filtra a lista de dependências para mostrar apenas as tarefas do mesmo projeto
+    const possibleDependencies = useMemo(() => {
+        if (!selectedProject || selectedProject === 'consolidated') {
+            return []; // Na visão consolidada, não permite adicionar dependências para evitar confusão
+        }
+        return tasks.filter(task => task.project_id === selectedProject);
+    }, [tasks, selectedProject]);
+
 
     useEffect(() => {
         if (isOpen && statuses.length > 0) {
@@ -115,7 +136,7 @@ export default function AddTaskModal({
                   <SelectTrigger className="col-span-3"><SelectValue placeholder="Nenhuma (tarefa principal)"/></SelectTrigger>
                   <SelectContent>
                       <SelectItem value="null">Nenhuma (tarefa principal)</SelectItem>
-                      {tasks.map(t => <SelectItem key={t.id} value={t.id}>{t.wbs_code} - {t.name}</SelectItem>)}
+                      {possibleDependencies.map(t => <SelectItem key={t.id} value={t.id}>{t.wbs_code} - {t.name}</SelectItem>)}
                   </SelectContent>
               </Select>
           </div>
@@ -123,7 +144,7 @@ export default function AddTaskModal({
             <Label htmlFor="assignee_id" className="text-right">Responsável</Label>
              <Select value={taskData.assignee_id || ''} onValueChange={(value) => handleInputChange('assignee_id', value)}>
                   <SelectTrigger className="col-span-3"><SelectValue placeholder="Selecione um responsável"/></SelectTrigger>
-                  <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{availableAssignees.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
               </Select>
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
@@ -190,8 +211,8 @@ export default function AddTaskModal({
             <Label className="text-right pt-2">Dependências</Label>
             <div className="col-span-3">
                 <ScrollArea className="h-32 w-full rounded-md border p-4">
-                    {tasks.length > 0 ? (
-                        tasks.map(dep => (
+                    {possibleDependencies.length > 0 ? (
+                        possibleDependencies.map(dep => (
                             <div key={dep.id} className="flex items-center space-x-2 mb-2">
                                 <Checkbox 
                                     id={`add-dep-${dep.id}`} 
@@ -204,7 +225,7 @@ export default function AddTaskModal({
                             </div>
                         ))
                     ) : (
-                        <p className="text-sm text-muted-foreground">Nenhuma outra tarefa para definir como dependência.</p>
+                        <p className="text-sm text-muted-foreground">Nenhuma outra tarefa no projeto para definir como dependência.</p>
                     )}
                 </ScrollArea>
             </div>

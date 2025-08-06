@@ -8,10 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { Task, User, Tag, TaskStatus } from "@/lib/types";
+import type { Task, User, Tag, TaskStatus, Project } from "@/lib/types"; // Importado Project
 import { DatePicker } from "../shared/date-picker";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSettings } from "@/hooks/use-table-settings";
+import { useProjects } from "@/hooks/use-projects"; // Importado useProjects
 import { parseUTCDate, formatToISODate } from "@/lib/date-utils";
 import ChangeHistoryModal from './change-history-modal';
 import { Loader2 } from "lucide-react";
@@ -25,7 +26,7 @@ interface EditTaskModalProps {
   task: Task;
   statuses: TaskStatus[];
   users: User[];
-  tasks: Task[]; // Lista de todas as tarefas para selecionar dependências
+  tasks: Task[];
   tags: Tag[];
 }
 
@@ -41,18 +42,33 @@ export default function EditTaskModal({
 }: EditTaskModalProps) {
     const { toast } = useToast();
     const { columns } = useTableSettings();
+    const { projects } = useProjects(); // Acesso aos projetos
     const [taskData, setTaskData] = useState<Partial<Task> & { custom_fields?: any } | null>(null);
     const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-    const [selectedDependencyIds, setSelectedDependencyIds] = useState<string[]>([]); // Estado para dependências
+    const [selectedDependencyIds, setSelectedDependencyIds] = useState<string[]>([]);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
     const originalTask = useMemo(() => task, [task]);
+
+    // Filtra a lista de responsáveis para mostrar apenas os colaboradores do projeto da tarefa
+    const availableAssignees = useMemo(() => {
+        if (!task || !projects) return [];
+        const project = projects.find(p => p.id === task.project_id);
+        if (!project) return []; // Se o projeto não for encontrado, retorna lista vazia
+        const collaboratorIds = project.collaborator_ids || [];
+        return users.filter(user => collaboratorIds.includes(user.id));
+    }, [task, projects, users]);
+
+    // Filtra a lista de dependências e tarefas pai
+    const possibleDependencies = useMemo(() => {
+        if (!task) return [];
+        return tasks.filter(t => t.id !== task.id && t.project_id === task.project_id);
+    }, [tasks, task]);
 
     useEffect(() => {
         if (isOpen && task) {
             setTaskData({ ...task, custom_fields: task.custom_fields || {} });
             setSelectedTagIds((task.tags || []).map(t => t.id));
-            // Inicializa o estado de dependências com os IDs da tarefa atual
             setSelectedDependencyIds(task.dependencies || []);
         } else {
             setTaskData(null);
@@ -93,7 +109,6 @@ export default function EditTaskModal({
     const handleSaveWithReason = async (reason: string = "") => {
         if (!taskData?.id) return;
         
-        // Constrói o objeto de atualização incluindo as dependências selecionadas
         const dataForUpdate: Partial<Task> & { tag_ids?: string[]; dependencies?: string[] } = {
             name: taskData.name,
             description: taskData.description,
@@ -104,7 +119,7 @@ export default function EditTaskModal({
             start_date: taskData.start_date,
             end_date: taskData.end_date,
             parent_id: taskData.parent_id,
-            dependencies: selectedDependencyIds, // Usa o estado atualizado
+            dependencies: selectedDependencyIds,
             custom_fields: taskData.custom_fields,
             tag_ids: selectedTagIds,
         };
@@ -136,10 +151,8 @@ export default function EditTaskModal({
         }
     };
     
-    // Filtra a tarefa atual da lista de possíveis pais e dependências
-    const availableTasks = tasks.filter(t => t.id !== task?.id);
     const tagOptions = tags.map(tag => ({ value: tag.id, label: tag.name }));
-    const dependencyOptions = availableTasks.map(t => ({ value: t.id, label: `[${t.formatted_id}] ${t.name}` }));
+    const dependencyOptions = possibleDependencies.map(t => ({ value: t.id, label: `[${t.formatted_id}] ${t.name}` }));
     const customColumns = columns.filter(col => col.id.startsWith('custom_'));
 
     return (
@@ -157,7 +170,6 @@ export default function EditTaskModal({
                         <ScrollArea className="h-[60vh] p-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
-                                    {/* Campos existentes... */}
                                     <div>
                                         <Label htmlFor="name">Nome da Tarefa</Label>
                                         <Input id="name" value={taskData.name || ''} onChange={(e) => handleInputChange('name', e.target.value)} />
@@ -182,13 +194,12 @@ export default function EditTaskModal({
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                     {/* Campos existentes... */}
                                      <div>
                                         <Label htmlFor="assignee_id">Responsável</Label>
                                         <Select value={taskData.assignee_id || undefined} onValueChange={(value) => handleInputChange('assignee_id', value)}>
                                             <SelectTrigger><SelectValue placeholder="Selecione um responsável" /></SelectTrigger>
                                             <SelectContent>
-                                                {users.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
+                                                {availableAssignees.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -220,7 +231,7 @@ export default function EditTaskModal({
                                             <SelectTrigger><SelectValue placeholder="Selecione uma tarefa pai" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="none">Nenhuma</SelectItem>
-                                                {availableTasks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                                {possibleDependencies.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                     </div>

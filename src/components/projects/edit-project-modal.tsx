@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "../shared/date-picker";
 import { MultiSelect } from "../shared/multi-select";
 import { useUsers } from "@/hooks/use-users";
-import { useCollaborators } from "@/hooks/use-collaborators";
 import { formatToISODate, parseUTCDate } from "@/lib/date-utils";
 import type { Project } from "@/lib/types";
 import { Loader2 } from "lucide-react";
@@ -29,7 +28,6 @@ export default function EditProjectModal({ isOpen, onOpenChange, onSave, project
   const [selectedCollaboratorIds, setSelectedCollaboratorIds] = useState<string[]>([]);
   
   const { users, loading: loadingUsers } = useUsers();
-  const { collaborators, loading: loadingCollaborators } = useCollaborators(project?.id || null);
 
   useEffect(() => {
     if (project) {
@@ -38,10 +36,9 @@ export default function EditProjectModal({ isOpen, onOpenChange, onSave, project
       setStartDate(project.start_date ? parseUTCDate(project.start_date) : undefined);
       setEndDate(project.end_date ? parseUTCDate(project.end_date) : undefined);
       setBudget(project.budget || "");
-      // Inicializa os colaboradores selecionados com os dados do projeto
-      setSelectedCollaboratorIds(collaborators.map(c => c.user_id));
+      setSelectedCollaboratorIds(project.collaborator_ids || []);
     }
-  }, [project, collaborators]); // Reage a mudanças no projeto e na lista de colaboradores carregada
+  }, [project]);
 
   const handleSave = () => {
     if (!project) return;
@@ -56,7 +53,7 @@ export default function EditProjectModal({ isOpen, onOpenChange, onSave, project
     onOpenChange(false);
   };
 
-  const isLoading = loadingUsers || loadingCollaborators;
+  const isLoading = loadingUsers;
 
   const userOptions = users.map(user => ({
     value: user.id,

@@ -50,6 +50,7 @@ const filterHierarchicalTasks = (tasks: TaskWithSubtasks[], statusFilter: string
 };
 
 const ProjectsPageContent = () => {
+    const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
     const { projects, loading: loadingProjects, addProject, updateProject, deleteProject } = useProjects();
     const { user, users, loading: loadingUsers } = useUsers();
     const { tags } = useTags();
@@ -117,7 +118,17 @@ const ProjectsPageContent = () => {
                     <TabsTrigger value="wbs">EAP</TabsTrigger>
                 </TabsList>
                 <TabsContent value="table" className="flex-1 flex flex-col min-h-0 mt-2">
-                   <TableHeaderActions {...{isManager, isConsolidatedView, statuses, users, statusFilter, userFilter, selectedTasks, myTasksOnly}} onAddTask={() => setIsAddTaskModalOpen(true)} onPrint={handlePrint} onOpenManager={() => setIsManagerModalOpen(true)} onSetSubtask={() => {}} isLoading={loadingTasks} onStatusChange={setStatusFilter} onUserChange={setUserFilter} onMyTasksOnlyChange={setMyTasksOnly} onImport={() => setIsImportModalOpen(true)} onExport={handleExport} />
+                   <TableHeaderActions {...{isManager, isConsolidatedView, statuses, users, statusFilter, userFilter, selectedTasks, myTasksOnly}} 
+                        onAddTask={() => setIsAddTaskModalOpen(true)} 
+                        onPrint={handlePrint} 
+                        onOpenManager={() => setIsManagerModalOpen(true)} 
+                        onSetSubtask={() => setIsSetSubtaskModalOpen(true)} // CORREÇÃO AQUI
+                        isLoading={loadingTasks} 
+                        onStatusChange={setStatusFilter} 
+                        onUserChange={setUserFilter} 
+                        onMyTasksOnlyChange={setMyTasksOnly} 
+                        onImport={() => setIsImportModalOpen(true)} 
+                        onExport={handleExport} />
                     <TableView {...{tasks: filteredHierarchicalTasks, users, deleteTask, isManager, selectedTasks, setSelectedTasks}} onEditTask={setTaskToEdit} onViewTask={setTaskToView} onOpenObservations={setTaskForObservations} loading={loadingTasks} currentUserId={user?.id} />
                 </TabsContent>
                  <TabsContent value="kanban" className="flex-1 min-h-0 mt-2">

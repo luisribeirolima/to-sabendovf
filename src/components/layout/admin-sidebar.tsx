@@ -35,9 +35,7 @@ import { Button } from "../ui/button";
 const navItems = [
     { href: "/admin", icon: LayoutDashboard, label: "Painel" },
     { href: "/admin/projects", icon: KanbanSquare, label: "Projetos" },
-    { href: "/admin/my-tasks", icon: ClipboardList, label: "Minhas Tarefas" },
     { href: "/admin/backlog", icon: Book, label: "Backlog" },
-    { href: "/admin/calendar", icon: Calendar, label: "Calendário" },
     { href: "/admin/ai-tools", icon: BrainCircuit, label: "Ferramentas de IA" },
 ];
 

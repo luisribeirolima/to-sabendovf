@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { PlusCircle, Settings, Printer, Network, ChevronsUpDown, Upload, Download } from 'lucide-react';
+import { PlusCircle, Settings, Network, ChevronsUpDown, Upload, Download } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { User, TaskStatus } from "@/lib/types";
@@ -11,15 +11,12 @@ interface TableHeaderActionsProps {
   isManager: boolean;
   isConsolidatedView: boolean;
   onAddTask: () => void;
-  onPrint: () => void;
   onOpenManager: () => void;
   onSetSubtask: () => void;
   isLoading: boolean;
   selectedTasks: Set<string>;
-  // Novas ações
   onImport: () => void;
   onExport: () => void;
-  // Filtros
   statuses: TaskStatus[];
   users: User[];
   statusFilter: string;
@@ -34,7 +31,6 @@ export default function TableHeaderActions({
   isManager,
   isConsolidatedView,
   onAddTask,
-  onPrint,
   onOpenManager,
   onSetSubtask,
   isLoading,
@@ -53,7 +49,6 @@ export default function TableHeaderActions({
   return (
     <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
       <div className="flex items-center gap-4 flex-wrap">
-        {/* Filtros da Tabela */}
         <Select value={statusFilter} onValueChange={onStatusChange}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtrar por status..." /></SelectTrigger>
           <SelectContent>
@@ -83,7 +78,6 @@ export default function TableHeaderActions({
           </Button>
         )}
         
-        {/* Menu de Ações */}
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -91,27 +85,24 @@ export default function TableHeaderActions({
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-                {isManager && selectedTasks.size > 0 && (
-                    <DropdownMenuItem onClick={onSetSubtask}>
-                        <Network className="h-4 w-4 mr-2" /> Definir como Subtarefa
-                    </DropdownMenuItem>
-                )}
-                 {!isConsolidatedView && isManager && (
-                    <DropdownMenuItem onClick={onImport}>
-                        <Upload className="h-4 w-4 mr-2" /> Importar de CSV
-                    </DropdownMenuItem>
-                 )}
-                <DropdownMenuItem onClick={onExport}>
+                {/* LOG DE DEPURAÇÃO: Botão sempre visível */}
+                <DropdownMenuItem onClick={() => { console.log('CLICOU: Definir como Subtarefa'); onSetSubtask(); }}>
+                    <Network className="h-4 w-4 mr-2" /> Definir como Subtarefa (Debug)
+                </DropdownMenuItem>
+                
+                {/* LOG DE DEPURAÇÃO: Botão sempre visível */}
+                <DropdownMenuItem onClick={() => { console.log('CLICOU: Importar de CSV'); onImport(); }}>
+                    <Upload className="h-4 w-4 mr-2" /> Importar de CSV (Debug)
+                </DropdownMenuItem>
+
+                <DropdownMenuItem onClick={() => { console.log('CLICOU: Exportar para CSV'); onExport(); }}>
                     <Download className="h-4 w-4 mr-2" /> Exportar para CSV
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onPrint} disabled={isLoading}>
-                    <Printer className="h-4 w-4 mr-2" /> Imprimir
+
+                {/* LOG DE DEPURAÇÃO: Botão sempre visível */}
+                <DropdownMenuItem onClick={() => { console.log('CLICOU: Gerenciar Tabela'); onOpenManager(); }}>
+                    <Settings className="h-4 w-4 mr-2" /> Gerenciar Tabela (Debug)
                 </DropdownMenuItem>
-                {isManager && (
-                    <DropdownMenuItem onClick={onOpenManager}>
-                        <Settings className="h-4 w-4 mr-2" /> Gerenciar Tabela
-                    </DropdownMenuItem>
-                )}
             </DropdownMenuContent>
         </DropdownMenu>
       </div>

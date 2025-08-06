@@ -19,6 +19,7 @@ export interface Project {
   owner_id?: string; 
   created_at: string;
   updated_at?: string;
+  collaborator_ids?: string[]; // Adicionado para o filtro de responsáveis
 }
 
 export interface Task {
@@ -42,7 +43,7 @@ export interface Task {
   wbs_code?: string;
   tags: Tag[];
   dependencies: string[];
-  custom_fields?: { [key: string]: any };
+  custom_fields?: { [key:string]: any };
   subtasks?: Task[];
   observation?: string;
 }
@@ -58,16 +59,4 @@ export interface TaskStatus {
     name: string;
     color: string;
     display_order: number;
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  start_date?: string; // <-- Essencial
-  end_date?: string;   // <-- Essencial
-  budget?: number;     // <-- Essencial
-  owner_id?: string; 
-  created_at: string;
-  updated_at?: string;
 }
