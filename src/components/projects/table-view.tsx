@@ -39,7 +39,14 @@ const TableView = forwardRef<HTMLDivElement, TableViewProps>(({
     const { visibleColumns, columns } = useTableSettings();
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-    const filteredVisibleColumns = useMemo(() => columns.filter(c => visibleColumns.includes(c.id)), [columns, visibleColumns]);
+    // CORREÇÃO: Adicionamos a coluna de ID à lista de colunas visíveis
+    const finalVisibleColumns = useMemo(() => {
+        const customColumns = columns.filter(c => visibleColumns.includes(c.id));
+        return [
+            { id: 'formatted_id', name: 'ID', type: 'text' }, // Coluna ID sempre visível
+            ...customColumns
+        ];
+    }, [columns, visibleColumns]);
 
     const allTaskIds = useMemo(() => {
         const ids: string[] = [];
@@ -68,7 +75,8 @@ const TableView = forwardRef<HTMLDivElement, TableViewProps>(({
                     currentUserId={currentUserId}
                     hasSubtasks={!!task.subtasks && task.subtasks.length > 0}
                     isExpanded={expandedRows.has(task.id)}
-                    visibleColumns={filteredVisibleColumns.map(c => c.id)}
+                    // Passa o ID da coluna para a TaskRow saber o que renderizar
+                    visibleColumns={finalVisibleColumns.map(c => c.id)} 
                     onSelect={(isChecked) => {
                         const newSelectedTasks = new Set(selectedTasks);
                         if (isChecked) newSelectedTasks.add(task.id);
@@ -91,6 +99,8 @@ const TableView = forwardRef<HTMLDivElement, TableViewProps>(({
         ));
     };
 
+    const colSpan = finalVisibleColumns.length + 2; // Nome + Checkbox + Ações
+
     return (
         <div ref={ref} className="border rounded-md overflow-x-auto flex-1">
             <Table>
@@ -104,17 +114,17 @@ const TableView = forwardRef<HTMLDivElement, TableViewProps>(({
                             />
                         </TableHead>
                         <TableHead>Nome</TableHead>
-                        {filteredVisibleColumns.map(col => <TableHead key={col.id}>{col.name}</TableHead>)}
+                        {finalVisibleColumns.map(col => <TableHead key={col.id}>{col.name}</TableHead>)}
                         <TableHead className="w-[100px]">Ações</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                      {loading ? (
-                        <TableRow><TableCell colSpan={filteredVisibleColumns.length + 3} className="h-24 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin" /></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={colSpan} className="h-24 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin" /></TableCell></TableRow>
                     ) : tasks.length > 0 ? (
                         renderTaskRows(tasks)
                     ) : (
-                        <TableRow><TableCell colSpan={filteredVisibleColumns.length + 3} className="h-24 text-center">Nenhuma tarefa encontrada.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={colSpan} className="h-24 text-center">Nenhuma tarefa encontrada.</TableCell></TableRow>
                     )}
                 </TableBody>
             </Table>

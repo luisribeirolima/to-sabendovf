@@ -15,6 +15,7 @@ import { useUsers } from "@/hooks/use-users";
 import { useTags } from "@/hooks/use-tags";
 import { useTableSettings } from "@/hooks/use-table-settings";
 import { Loader2, PlusCircle, MoreHorizontal } from "lucide-react";
+import { supabase } from "@/lib/supabase"; 
 import type { Task, Project } from "@/lib/types";
 import AddTaskModal from "@/components/projects/add-task-modal";
 import EditTaskModal from "@/components/projects/edit-task-modal";
@@ -73,8 +74,6 @@ const ProjectsPageContent = () => {
     const [userFilter, setUserFilter] = useState('all');
     const [myTasksOnly, setMyTasksOnly] = useState(searchParams.get('filter') === 'my_tasks');
     const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
-    const printRef = useRef<HTMLDivElement>(null);
-    const handlePrint = useReactToPrint({ content: () => printRef.current });
 
     const isManager = useMemo(() => user?.role === 'Admin' || user?.role === 'Gerente', [user]);
 
@@ -96,15 +95,56 @@ const ProjectsPageContent = () => {
         toast({ title: "Status da tarefa atualizado!" });
     };
 
-    const handleDeleteProjectConfirm = async () => { /* ... */ };
-    const handleExport = () => { /* ... */ };
+    const handleDeleteProjectConfirm = async () => {
+        if (!currentProject) return;
+        await deleteProject(currentProject.id);
+        toast({ title: "Projeto excluído!" });
+        setIsDeleteProjectModalOpen(false);
+    };
 
+    const handleExport = async () => {
+        const projectIdToExport = selectedProjectId || 'consolidated'; // Default to consolidated
+    
+        const { id, update } = toast({ title: "Exportando...", description: "Iniciando o processo..." });
+    
+        try {
+            const { data, error } = await supabase.functions.invoke('export-tasks', {
+                body: { projectId: projectIdToExport },
+                responseType: 'text'
+            });
+    
+            if (error) {
+                throw new Error(`Erro na chamada da função: ${error.message}`);
+            }
+    
+            if (typeof data === 'string' && (data.trim().length > 0 || data.length === 0)) {
+                if (data.length === 0) {
+                    update({ id, title: "Exportação Concluída", description: "Nenhuma tarefa encontrada para exportar.", variant: "default" });
+                    return;
+                }
+                const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `export_${projectIdToExport}_${new Date().toISOString()}.csv`; 
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+    
+                update({ id, title: "Sucesso!", description: "Seu download foi concluído.", variant: "default" });
+            } else {
+                const errorMessage = JSON.stringify(data) || "A resposta do servidor estava vazia ou em formato inválido.";
+                throw new Error(`A resposta do servidor não era um CSV válido: ${errorMessage}`);
+            }
+    
+        } catch (e: any) {
+            update({ id, title: "Falha na Exportação", description: e.message, variant: "destructive" });
+        }
+    };
+    
     const projectActions = ( <div className="flex items-center gap-2"> <ProjectSelector projects={projects} value={selectedProjectId || ''} onValueChange={setSelectedProjectId} showConsolidatedView={true} /> {isManager && ( <> <Button onClick={() => setIsAddProjectModalOpen(true)}> <PlusCircle className="h-4 w-4 mr-2" /> Novo Projeto </Button> {!isConsolidatedView && currentProject && ( <DropdownMenu> <DropdownMenuTrigger asChild><Button variant="outline" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger> <DropdownMenuContent> <DropdownMenuItem onClick={() => setProjectToEdit(currentProject)}>Editar Projeto</DropdownMenuItem> <DropdownMenuItem onClick={() => setIsDeleteProjectModalOpen(true)} className="text-red-500">Excluir Projeto</DropdownMenuItem> </DropdownMenuContent> </DropdownMenu> )} </> )} </div> );
     
-    if (loadingUsers || loadingProjects || loadingSettings) {
-        return <div className="flex flex-1 items-center justify-center h-full"> <Loader2 className="h-8 w-8 animate-spin" /> </div>;
-    }
-
     return (
         <div className="flex flex-col h-full">
             <div className="p-4 pb-0">
@@ -118,21 +158,10 @@ const ProjectsPageContent = () => {
                     <TabsTrigger value="wbs">EAP</TabsTrigger>
                 </TabsList>
                 <TabsContent value="table" className="flex-1 flex flex-col min-h-0 mt-2">
-                   <TableHeaderActions {...{isManager, isConsolidatedView, statuses, users, statusFilter, userFilter, selectedTasks, myTasksOnly}} 
-                        onAddTask={() => setIsAddTaskModalOpen(true)} 
-                        onPrint={handlePrint} 
-                        onOpenManager={() => setIsManagerModalOpen(true)} 
-                        onSetSubtask={() => setIsSetSubtaskModalOpen(true)} // CORREÇÃO AQUI
-                        isLoading={loadingTasks} 
-                        onStatusChange={setStatusFilter} 
-                        onUserChange={setUserFilter} 
-                        onMyTasksOnlyChange={setMyTasksOnly} 
-                        onImport={() => setIsImportModalOpen(true)} 
-                        onExport={handleExport} />
+                   <TableHeaderActions {...{isManager, isConsolidatedView, statuses, users, statusFilter, userFilter, selectedTasks, myTasksOnly}} onAddTask={() => setIsAddTaskModalOpen(true)} onOpenManager={() => setIsManagerModalOpen(true)} onSetSubtask={() => setIsSetSubtaskModalOpen(true)} isLoading={loadingTasks} onStatusChange={setStatusFilter} onUserChange={setUserFilter} onMyTasksOnlyChange={setMyTasksOnly} onImport={() => setIsImportModalOpen(true)} onExport={handleExport} />
                     <TableView {...{tasks: filteredHierarchicalTasks, users, deleteTask, isManager, selectedTasks, setSelectedTasks}} onEditTask={setTaskToEdit} onViewTask={setTaskToView} onOpenObservations={setTaskForObservations} loading={loadingTasks} currentUserId={user?.id} />
                 </TabsContent>
                  <TabsContent value="kanban" className="flex-1 min-h-0 mt-2">
-                    {/* ** CORREÇÃO: A função handleDragEnd foi reconectada ** */}
                     <KanbanBoard tasks={filteredKanbanTasks} statuses={statuses} onDragEnd={handleDragEnd} loading={loadingTasks || loadingSettings} onEditTask={setTaskToEdit} />
                 </TabsContent>
                 <TabsContent value="gantt" className="flex-1 overflow-y-auto mt-2">
@@ -143,14 +172,16 @@ const ProjectsPageContent = () => {
                 </TabsContent>
             </Tabs>
             
-            {/* ... (todos os modais) ... */}
             <AddProjectModal isOpen={isAddProjectModalOpen} onOpenChange={setIsAddProjectModalOpen} onSave={addProject} />
-            <EditProjectModal isOpen={!!projectToEdit} onOpenChange={() => setProjectToEdit(null)} onSave={updateProject} project={projectToEdit} />
+            {projectToEdit && <EditProjectModal isOpen={!!projectToEdit} onOpenChange={() => setProjectToEdit(null)} onSave={updateProject} project={projectToEdit} />}
             <ImportTasksModal isOpen={isImportModalOpen} onOpenChange={setIsImportModalOpen} projectId={selectedProjectId} onImportSuccess={refetchTasks} />
             <AlertModal isOpen={isDeleteProjectModalOpen} onClose={() => setIsDeleteProjectModalOpen(false)} onConfirm={handleDeleteProjectConfirm} title="Excluir Projeto" description={`Tem certeza que deseja excluir o projeto "${currentProject?.name}"?`} />
             <AddTaskModal isOpen={isAddTaskModalOpen} onOpenChange={setIsAddTaskModalOpen} onSave={addTask} selectedProject={selectedProjectId || ''} statuses={statuses} users={users} tasks={rawTasks} tags={tags} />
             {taskToEdit && ( <EditTaskModal key={`edit-${taskToEdit.id}`} isOpen={!!taskToEdit} onOpenChange={() => setTaskToEdit(null)} onTaskUpdate={(updatedTask) => updateTaskDetails(taskToEdit.id, updatedTask)} task={taskToEdit} statuses={statuses} users={users} tasks={rawTasks} tags={tags} /> )}
             {taskToView && ( <ViewTaskModal key={`view-${taskToView.id}`} isOpen={!!taskToView} onOpenChange={() => setTaskToView(null)} task={taskToView} /> )}
+            {taskForObservations && <TaskObservationsModal isOpen={!!taskForObservations} onOpenChange={() => setTaskForObservations(null)} task={taskForObservations} />}
+            {isSetSubtaskModalOpen && <SetSubtaskModal isOpen={isSetSubtaskModalOpen} onOpenChange={setIsSetSubtaskModalOpen} taskIds={Array.from(selectedTasks)} allTasks={rawTasks} onConfirm={setParentTask} />}
+            {isManagerModalOpen && <TableManagerModal isOpen={isManagerModalOpen} onOpenChange={setIsManagerModalOpen} />}
         </div>
     );
 }

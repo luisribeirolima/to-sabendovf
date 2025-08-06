@@ -85,24 +85,24 @@ export default function TableHeaderActions({
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-                {/* LOG DE DEPURAÇÃO: Botão sempre visível */}
-                <DropdownMenuItem onClick={() => { console.log('CLICOU: Definir como Subtarefa'); onSetSubtask(); }}>
-                    <Network className="h-4 w-4 mr-2" /> Definir como Subtarefa (Debug)
-                </DropdownMenuItem>
-                
-                {/* LOG DE DEPURAÇÃO: Botão sempre visível */}
-                <DropdownMenuItem onClick={() => { console.log('CLICOU: Importar de CSV'); onImport(); }}>
-                    <Upload className="h-4 w-4 mr-2" /> Importar de CSV (Debug)
-                </DropdownMenuItem>
-
-                <DropdownMenuItem onClick={() => { console.log('CLICOU: Exportar para CSV'); onExport(); }}>
+                {isManager && selectedTasks.size > 0 && (
+                    <DropdownMenuItem onClick={onSetSubtask}>
+                        <Network className="h-4 w-4 mr-2" /> Definir como Subtarefa
+                    </DropdownMenuItem>
+                )}
+                 {!isConsolidatedView && isManager && (
+                    <DropdownMenuItem onClick={onImport}>
+                        <Upload className="h-4 w-4 mr-2" /> Importar de CSV
+                    </DropdownMenuItem>
+                 )}
+                <DropdownMenuItem onClick={onExport}>
                     <Download className="h-4 w-4 mr-2" /> Exportar para CSV
                 </DropdownMenuItem>
-
-                {/* LOG DE DEPURAÇÃO: Botão sempre visível */}
-                <DropdownMenuItem onClick={() => { console.log('CLICOU: Gerenciar Tabela'); onOpenManager(); }}>
-                    <Settings className="h-4 w-4 mr-2" /> Gerenciar Tabela (Debug)
-                </DropdownMenuItem>
+                {isManager && (
+                    <DropdownMenuItem onClick={onOpenManager}>
+                        <Settings className="h-4 w-4 mr-2" /> Gerenciar Tabela
+                    </DropdownMenuItem>
+                )}
             </DropdownMenuContent>
         </DropdownMenu>
       </div>

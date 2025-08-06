@@ -30,12 +30,11 @@ interface TaskRowProps {
 }
 
 const renderCell = (task: Task, columnId: string, columns: any[]) => {
-    const column = columns.find(c => c.id === columnId);
-    if (!column) return null;
-
-    if (column.id.startsWith('custom_')) {
+    // Primeiro, verifica se é uma coluna personalizada
+    const customColumn = columns.find(c => c.id === columnId);
+    if (customColumn && customColumn.id.startsWith('custom_')) {
         const value = task.custom_fields?.[columnId];
-        switch (column.type) {
+        switch (customColumn.type) {
             case 'text': case 'number': return value || 'N/A';
             case 'date': return value ? parseUTCDate(value).toLocaleDateString() : 'N/A';
             case 'progress': return <div className="flex items-center gap-2"><Progress value={value || 0} className="w-[60%]" /> <span>{value || 0}%</span></div>;
@@ -43,7 +42,9 @@ const renderCell = (task: Task, columnId: string, columns: any[]) => {
         }
     }
 
+    // Se não for personalizada, trata como uma coluna padrão
     switch (columnId) {
+        case 'formatted_id': return <Badge variant="secondary">{task.formatted_id}</Badge>;
         case 'project_name': return task.project_name || 'N/A';
         case 'assignee_name': return task.assignee_name || 'N/A';
         case 'status_name': return <Badge style={{ backgroundColor: task.status_color }} className="text-white">{task.status_name}</Badge>;
