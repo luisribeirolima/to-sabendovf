@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useMemo } from 'react';
 import {
   AreaChart,
   BrainCircuit,
@@ -17,19 +18,31 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useUsers } from "@/hooks/use-users"; // Importar o hook de usuários
 
-const navItems = [
+const allNavItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Painel" },
     { href: "/projects", icon: KanbanSquare, label: "Projetos" },
-    { href: "/projects?filter=my_tasks", icon: ClipboardList, label: "Minhas Tarefas" },
-    { href: "/bi", icon: AreaChart, label: "BI" }, // CORREÇÃO: Aponta para a nova página /bi
-    { href: "/calendar", icon: Calendar, label: "Calendário" },
+    { href: "/projects?filter=my_tasks", icon: ClipboardList, label: "Minhas Tarefas", roles: ['Admin', 'Membro'] }, // Visível para Admin e Membro
+    { href: "/bi", icon: AreaChart, label: "BI" },
+    { href: "/calendar", icon: Calendar, label: "Calendário", roles: ['Admin', 'Membro'] }, // Visível para Admin e Membro
     { href: "/ai-tools", icon: BrainCircuit, label: "Ferramentas de IA" },
 ]
 
 export default function AppSidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { user } = useUsers(); // Obter o usuário atual
+
+  // Filtra os itens de navegação com base no perfil do usuário
+  const navItems = useMemo(() => {
+    if (!user?.role) return [];
+    if (user.role === 'Gerente') {
+      // Gerentes não veem "Minhas Tarefas" e "Calendário"
+      return allNavItems.filter(item => item.label !== "Minhas Tarefas" && item.label !== "Calendário");
+    }
+    return allNavItems;
+  }, [user]);
 
   const checkActive = (href: string, label: string) => {
     const currentFilter = searchParams.get('filter');
